@@ -64,14 +64,9 @@ https://foogjnjpclbidngnjhbbidfclkpoilhj.chromiumapp.org/
 | `nav.css` | YouTube のナビに差し込むボタンの見た目 |
 
 ## リリースの作り方
-`manifest.json` の `version` を上げてコミットし、同じ番号のタグを push すると、GitHub Actions（`.github/workflows/release.yml`）が `TubeTunes.zip` を作って Releases に公開する。
-
-```
-git tag v1.5.0
-git push origin v1.5.0
-```
-
-タグと `manifest.json` の version が違うと失敗する。
+`manifest.json` の `version` を上げて main に push すると、GitHub Actions（`.github/workflows/release.yml`）が `v＜version＞` のタグと Release を作り、`TubeTunes.zip` を添付する。
+- 同じバージョンのリリースが既にあれば何もしない
+- Actions タブの「Run workflow」から手動でも実行できる
 
 ## Android 版 Vivaldi でのバックグラウンド再生
 - Vivaldi の設定「バックグラウンドでの音声再生を許可」をオン
