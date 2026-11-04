@@ -20,9 +20,19 @@
   const isAd = (p) => p.classList.contains('ad-showing') || p.classList.contains('ad-interrupting');
   const SKIP = '.ytp-skip-ad-button, .ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-ad-skip-button-container button, button[id^="skip-button"]';
 
+  // 広告中かどうかを親（content.js）へ知らせる：広告の時間・長さ・終了通知を曲のものと取り違えないため
+  let told = false;
+  function tell(on) {
+    if (told === on) return;
+    told = on;
+    try { window.parent.postMessage(JSON.stringify({ event: 'tt-ad', on }), '*'); } catch { /* noop */ }
+  }
+
   function tick() {
     const p = player(), v = video();
-    if (!p || !v) return;
+    if (!p) return;
+    tell(isAd(p)); // 早送りの設定がオフでも広告中は知らせる
+    if (!v) return;
     if (enabled && isAd(p)) {
       if (!saved) saved = { muted: v.muted, rate: v.playbackRate || 1 };
       if (!v.muted) v.muted = true;

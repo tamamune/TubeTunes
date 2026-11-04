@@ -426,6 +426,7 @@
       allowfullscreen: true,
       title: 'TubeTunes Player',
     });
+    adOn = false; adGrace = 0;
     iframe.addEventListener('load', startListening);
     videoBox.append(iframe);
   }
@@ -435,6 +436,11 @@
     if (typeof d === 'string') { try { d = JSON.parse(d); } catch { return; } }
     if (!d || !d.event) return;
     if (d.event === 'tt-relay-load') { startListening(); return; }
+    if (d.event === 'tt-ad') { // ads.js（埋め込み内）からの「広告中」の通知
+      adOn = !!d.on;
+      if (!adOn) adGrace = Date.now() + 1500; // 広告が終わった直後の終了通知も無視
+      return;
+    }
     if (!ready) {
       ready = true;
       clearInterval(listenTimer);
@@ -449,6 +455,9 @@
     else if (d.event === 'onError') handleError(d.info);
   });
 
+  // 広告中は、時間・長さ・状態（特に「終了」）が広告のものなので曲の状態に反映しない
+  let adOn = false, adGrace = 0;
+  const inAd = () => adOn || Date.now() < adGrace;
   function handleInfo(info) {
     // プレーヤー側で曲が進んだら、こちらの位置も合わせる
     if (typeof info.playlistIndex === 'number' && winStart >= 0 && Date.now() - loadAt > 1500) {
@@ -457,8 +466,9 @@
       const t = np < S.order.length ? S.queue[S.order[np]] : null;
       if (np !== S.pos && t && (!vid || vid === t.id)) onTrackAdvanced(np);
     }
-    if (typeof info.currentTime === 'number') S.time = info.currentTime;
-    if (typeof info.duration === 'number' && info.duration > 0) S.duration = info.duration;
+    const ad = inAd();
+    if (!ad && typeof info.currentTime === 'number') S.time = info.currentTime;
+    if (!ad && typeof info.duration === 'number' && info.duration > 0) S.duration = info.duration;
     const c = cur();
     if (c && info.videoData && info.videoData.video_id === c.id) {
       let changed = false;
@@ -466,7 +476,7 @@
       if (info.videoData.author && !c.author) { c.author = info.videoData.author; changed = true; }
       if (changed) { renderNow(); renderMini(); updateMediaSession(); }
     }
-    if (typeof info.playerState === 'number') handleState(info.playerState);
+    if (typeof info.playerState === 'number' && !(ad && info.playerState === 0)) handleState(info.playerState);
     else renderTime();
   }
   function onTrackAdvanced(np) {
@@ -489,6 +499,7 @@
     scrollQueueToCurrent();
   }
   function handleState(st) {
+    if (st === 0 && inAd()) return; // 広告の終了で次の曲へ飛ばない
     const wasPlaying = S.playing;
     S.playing = st === 1 || st === 3;
     S.buffering = st === 3;
