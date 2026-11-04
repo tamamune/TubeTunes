@@ -17,6 +17,7 @@ YouTube のライブラリ・再生リストを音楽プレーヤーとして再
 | `manifest.json` | MV3。`key` で拡張機能IDを `foogjnjpclbidngnjhbbidfclkpoilhj` に固定（Drive のリダイレクトURIがIDに依存するため。**消さない**） |
 | `bridge.js` | MAIN world。`window.ytcfg`（APIキー・INNERTUBE_CONTEXT など）を postMessage でコンテンツスクリプトへ渡す |
 | `content.js` | 本体（約1500行の IIFE）。状態 `S`、youtubei API、埋め込みプレーヤー操作、UI（Shadow DOM）、ライブラリ、Drive 同期の画面側 |
+| `ads.js` | 埋め込み（youtube.com/embed/*）の全フレームで動く。広告中は16倍速・ミュート＋スキップ押下。設定は `tubetunes_state_v1.adFast` を読む |
 | `relay.js` | デスクトップ用の中継フレーム。`m.youtube.com/robots.txt?tubetunes=1#v=…&po=…` で動き、中に youtube.com/embed を置いて postMessage を転送 |
 | `background.js` | Service Worker。Google Drive の OAuth・保存・読み込み |
 | `nav.css` | YouTube 本体のナビに差し込むボタンの CSS（Shadow DOM の外） |
@@ -56,7 +57,10 @@ YouTube のライブラリ・再生リストを音楽プレーヤーとして再
 4. v1.4：画質選択、デスクトップのミニプレーヤー自動非表示（時間は設定）、モバイルの振り分け修正（WEB クライアント化）、「非表示」フォルダ
 5. v1.5：リロード直後はミニプレーヤーを出さない、Google Drive 同期、拡張IDの固定
 
+6. v1.6：動画内UIの大きさ（`S.uiScale` 0.01〜100%、`placeVideo()` で画質と合わせて大きく描いて縮める）、広告の16倍速、ツール類を「⚙ 設定」に集約
+
 ## 未確認・宿題
+- v1.6 の変更（UI縮小・広告早送り・設定の再配置）も実機未確認。広告は埋め込み内で `ad-showing` が付くかの確認が必要
 - v1.4 以降の変更は構文チェックのみで、ログインした実機ではまだ動かしていない（特に：Drive 接続、モバイルのタブ認証、画質の transform 表示、非表示フォルダ）
 - Drive 接続は利用者側で `redirect_uri_mismatch` が出た段階。リダイレクトURIの登録待ち
 - Android 版 Vivaldi のバックグラウンド再生：Vivaldi の「バックグラウンドでの音声再生を許可」と Android の電池「制限なし」が前提。Vivaldi 側にも再生リストが途中で止まる報告がある（forum.vivaldi.net/post/917575）。拡張だけでは完全には直せない

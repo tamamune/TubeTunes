@@ -100,7 +100,10 @@
     miniClosed: false,
     quality: 'auto',    // auto | hd720 | hd1080 | hd1440
     miniHide: 60,       // デスクトップ：停止中のミニプレーヤーを隠すまでの秒数（0=しない）
+    uiScale: 100,       // 動画内の UI（タイトル・ボタンなど）の大きさ（%・0.01〜100）。小さいほど UI が小さくなる
+    adFast: true,       // 広告を 16倍速・ミュートで早送り（ads.js が読む）
   };
+  function clampScale(v) { const n = +v; return Number.isFinite(n) && n > 0 ? Math.min(100, Math.max(0.01, n)) : 100; }
   const cur = () => (S.pos >= 0 && S.pos < S.order.length ? S.queue[S.order[S.pos]] : null);
 
   // 保存
@@ -113,7 +116,7 @@
           [STORE_KEY]: {
             queue: S.queue, order: S.order, pos: S.pos, shuffle: S.shuffle, repeat: S.repeat,
             time: S.time, volume: S.volume, sourceTitle: S.sourceTitle, sourceId: S.sourceId, showVideo: S.showVideo,
-            quality: S.quality, miniHide: S.miniHide,
+            quality: S.quality, miniHide: S.miniHide, uiScale: S.uiScale, adFast: S.adFast,
           },
         });
       } catch { /* 拡張の再読み込み後など */ }
@@ -129,6 +132,7 @@
         shuffle: !!d.shuffle, repeat: d.repeat || 'off', time: d.time || 0, volume: d.volume ?? 100,
         sourceTitle: d.sourceTitle || '', sourceId: d.sourceId || '', showVideo: !!d.showVideo,
         quality: d.quality || 'auto', miniHide: d.miniHide ?? 60,
+        uiScale: clampScale(d.uiScale), adFast: d.adFast !== false,
       });
       if (S.pos >= S.order.length) S.pos = S.order.length ? 0 : -1;
       const c = cur();
@@ -870,6 +874,12 @@
   .tbody { padding: 4px 0 12px 30px; border-bottom: 1px solid rgba(255,255,255,.06); }
   .tbody .actions { padding: 2px 0 8px; }
   .msg.sm { padding: 10px 28px 16px; text-align: left; font-size: 13px; }
+  .setbox { margin-top: 18px; border-top: 1px solid rgba(255,255,255,.1); padding-top: 6px; }
+  .setbox > summary { cursor: pointer; font-size: 14px; font-weight: 600; padding: 10px 4px; user-select: none; }
+  .setbox .sec { text-align: center; padding: 14px 0 0; }
+  .uirow { display: flex; align-items: center; gap: 8px; margin-top: 8px; color: #ccc; font-size: 13px; }
+  .uirow input[type=range] { flex: 1; accent-color: #f1f1f1; }
+  .uirow .num { width: 84px; height: 32px; border-radius: 8px; border: 1px solid #333; background: #121212; color: #f1f1f1; padding: 0 8px; font: inherit; }
   .sy { margin-top: 8px; }
   .sy-st { font-size: 12px; color: #aaa; text-align: center; margin: 4px 0 2px; line-height: 1.5; }
   .sy-auto { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12px; color: #ccc; margin-top: 12px; }
@@ -964,6 +974,13 @@
     [[0, 'ミニ自動非表示：しない'], [30, 'ミニ自動非表示：30秒'], [60, 'ミニ自動非表示：1分'], [180, 'ミニ自動非表示：3分'],
       [300, 'ミニ自動非表示：5分'], [600, 'ミニ自動非表示：10分'], [1800, 'ミニ自動非表示：30分']]
       .map(([v, l]) => h('option', { value: String(v) }, l)));
+  // 動画内の UI の大きさ（TubeFolio の「新プレビューの UI の大きさ」と同じ方式）
+  now.uiR = h('input', { type: 'range', min: '1', max: '100', step: '1', value: '100' });
+  now.uiN = h('input', { type: 'number', class: 'num', min: '0.01', max: '100', step: '0.01', value: '100' });
+  now.uiR.addEventListener('input', () => setUiScale(+now.uiR.value));
+  now.uiN.addEventListener('change', () => setUiScale(+now.uiN.value));
+  now.ad = h('input', { type: 'checkbox' });
+  now.ad.addEventListener('change', () => { S.adFast = now.ad.checked; save(); settingsChanged(); toast(S.adFast ? '広告を16倍速で早送りします' : '広告の早送りをオフにしました'); });
   now.vol = h('input', { type: 'range', min: '0', max: '100', value: String(S.volume) });
   now.vol.addEventListener('input', () => setVolume(+now.vol.value));
   let seeking = false;
@@ -998,7 +1015,7 @@
   function collectSettings() {
     return {
       app: 'TubeTunes', v: 1, savedAt: syncMeta.savedAt || Date.now(),
-      player: { shuffle: S.shuffle, repeat: S.repeat, volume: S.volume, quality: S.quality, miniHide: S.miniHide, showVideo: S.showVideo },
+      player: { shuffle: S.shuffle, repeat: S.repeat, volume: S.volume, quality: S.quality, miniHide: S.miniHide, showVideo: S.showVideo, uiScale: S.uiScale, adFast: S.adFast },
       folders: { ...folders },
       hidden: [...hiddenIds],
     };
@@ -1011,6 +1028,8 @@
     if (typeof p.quality === 'string') S.quality = p.quality;
     if (typeof p.miniHide === 'number') S.miniHide = p.miniHide;
     if (typeof p.showVideo === 'boolean') S.showVideo = p.showVideo;
+    if (typeof p.uiScale === 'number') S.uiScale = clampScale(p.uiScale);
+    if (typeof p.adFast === 'boolean') S.adFast = p.adFast;
     if (typeof p.shuffle === 'boolean' && p.shuffle !== prevShuffle) {
       const curIdx = S.pos >= 0 ? S.order[S.pos] : -1;
       S.shuffle = p.shuffle;
@@ -1165,10 +1184,18 @@
     h('div', { class: 'times' }, now.tCur, now.tDur),
     h('div', { class: 'ctrls' }, now.shuf, now.prev, now.play, now.next, now.rep),
     IS_MOBILE ? null : h('div', { class: 'vol' }, icon('volume', 20), now.vol),
-    h('div', { class: 'extras' }, now.vid, now.sleep, now.yt),
-    h('div', { class: 'sec', text: '設定' }),
-    h('div', { class: 'extras' }, now.quality, IS_MOBILE ? null : now.miniHide),
-    syncUI.el));
+    // プレーヤーの操作以外（ツール類・新機能・Drive 同期）は「設定」にまとめる
+    h('details', { class: 'setbox' },
+      h('summary', { text: '⚙ 設定' }),
+      h('div', { class: 'sec', text: 'ツール' }),
+      h('div', { class: 'extras' }, now.vid, now.sleep, now.yt),
+      h('div', { class: 'sec', text: '表示' }),
+      h('div', { class: 'extras' }, now.quality, IS_MOBILE ? null : now.miniHide),
+      h('div', { class: 'sec', text: '動画内の UI の大きさ（100%＝そのまま／小さいほどタイトルやボタンが小さくなる）' }),
+      h('div', { class: 'uirow' }, now.uiR, now.uiN, h('span', { text: '%' })),
+      h('div', { class: 'sec', text: '広告' }),
+      h('label', { class: 'sy-auto' }, now.ad, h('span', { text: '広告を16倍速・ミュートで早送りし、スキップできれば自動で押す' })),
+      syncUI.el)));
   pages.now.addEventListener('scroll', placeVideo, { passive: true });
 
   // ---- キューページ ----
@@ -1197,6 +1224,9 @@
     now.vol.value = String(S.volume);
     now.quality.value = S.quality;
     now.miniHide.value = String(S.miniHide);
+    now.uiR.value = String(Math.max(1, Math.round(S.uiScale)));
+    if (document.activeElement !== now.uiN) now.uiN.value = String(+S.uiScale.toFixed(2));
+    now.ad.checked = S.adFast;
     document.querySelectorAll('.tt-pivot').forEach((b) => b.classList.toggle('tt-active', S.playing));
   }
   function renderTime() {
@@ -1479,6 +1509,14 @@
     settingsChanged();
     toast(q === 'auto' ? '画質：自動（動画非表示中は480p前後）' : `画質：${q.replace('hd', '')}p（回線状況で下がることがあります）`);
   }
+  const MAX_RENDER = 16384; // 描画サイズの上限（px）。これを超える分は UI の大きさが指定より大きくなる
+  function setUiScale(v) {
+    S.uiScale = clampScale(v);
+    renderControls();
+    placeVideo();
+    save();
+    settingsChanged();
+  }
   function placeVideo() {
     const vis = sheetOpen && tab === 'now' && S.showVideo && iframe;
     const st = videoBox.style;
@@ -1488,11 +1526,15 @@
     if (vis) {
       const r = now.art.getBoundingClientRect();
       st.left = r.left + 'px'; st.top = r.top + 'px';
-      if (dims && r.width > 0) {
-        const w = dims[0] / dpr, hgt = dims[1] / dpr;
+      if ((dims || S.uiScale < 100) && r.width > 0 && r.height > 0) {
+        // 大きく描いてから縮める：UI の大きさ（uiScale）と画質（dims）の大きい方に合わせる
+        let k = Math.max(1, 100 / S.uiScale);
+        if (dims) k = Math.max(k, dims[0] / dpr / r.width);
+        k = Math.min(k, MAX_RENDER / r.width, MAX_RENDER / r.height); // 描画サイズの上限
+        const w = r.width * k, hgt = r.height * k;
         st.width = w + 'px'; st.height = hgt + 'px';
-        st.transform = `scale(${r.width / w}, ${r.height / hgt})`;
-        st.borderRadius = (12 * w / r.width) + 'px';
+        st.transform = `scale(${1 / k})`;
+        st.borderRadius = (12 * k) + 'px';
       } else {
         st.width = r.width + 'px'; st.height = r.height + 'px';
         st.transform = 'none';
