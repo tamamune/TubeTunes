@@ -3,7 +3,7 @@
 YouTube のライブラリ・再生リストを音楽プレーヤーとして再生する拡張機能（Chrome / Vivaldi、モバイル版 Vivaldi 対応）。
 
 ## 入れ方
-1. このリポジトリを zip でダウンロードして展開（または clone）
+1. [Releases](https://github.com/tamamune/TubeTunes/releases) から最新の `TubeTunes.zip` をダウンロードして展開
 2. 拡張機能の管理画面でデベロッパーモードをオン →「パッケージ化されていない拡張機能を読み込む」でフォルダを選ぶ
 3. 拡張機能ID が `foogjnjpclbidngnjhbbidfclkpoilhj` になっていることを確認（manifest の `key` で固定）
 
@@ -62,6 +62,16 @@ https://foogjnjpclbidngnjhbbidfclkpoilhj.chromiumapp.org/
 | `relay.js` | デスクトップ用の中継フレーム（m.youtube.com/robots.txt に埋め込みを置く） |
 | `background.js` | Google Drive の認証・保存・読み込み |
 | `nav.css` | YouTube のナビに差し込むボタンの見た目 |
+
+## リリースの作り方
+`manifest.json` の `version` を上げてコミットし、同じ番号のタグを push すると、GitHub Actions（`.github/workflows/release.yml`）が `TubeTunes.zip` を作って Releases に公開する。
+
+```
+git tag v1.5.0
+git push origin v1.5.0
+```
+
+タグと `manifest.json` の version が違うと失敗する。
 
 ## Android 版 Vivaldi でのバックグラウンド再生
 - Vivaldi の設定「バックグラウンドでの音声再生を許可」をオン

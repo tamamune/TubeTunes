@@ -1,0 +1,42 @@
+# v から始まるタグ（例: v1.5.0）を push すると、TubeTunes.zip を作って Releases に公開する
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: manifest のバージョンとタグが一致しているか確認
+        run: |
+          MV=$(jq -r .version manifest.json)
+          TV="${GITHUB_REF_NAME#v}"
+          echo "manifest: $MV / tag: $TV"
+          if [ "$MV" != "$TV" ]; then
+            echo "::error::manifest.json の version ($MV) とタグ ($TV) が一致しません"
+            exit 1
+          fi
+
+      - name: zip を作成
+        run: |
+          mkdir -p dist/TubeTunes
+          cp -r manifest.json *.js *.css icons dist/TubeTunes/
+          cd dist && zip -r TubeTunes.zip TubeTunes
+
+      - name: Release を作成
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/TubeTunes.zip \
+            --title "TubeTunes $GITHUB_REF_NAME" \
+            --notes-file <(printf '%s\n\n%s\n' \
+              "TubeTunes.zip をダウンロードして展開し、拡張機能の管理画面の「パッケージ化されていない拡張機能を読み込む」でフォルダを選んでください。" \
+              "拡張機能ID: foogjnjpclbidngnjhbbidfclkpoilhj")
