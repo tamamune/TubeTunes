@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TubeTunes",
-  "version": "1.6.1",
+  "version": "1.6.1.1",
   "description": "YouTubeのライブラリ・再生リストを音楽プレーヤーとして再生します（モバイル/デスクトップ対応）",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAq0kaQCHwFKz2Ubn3HPX4xOigTifjqB0fQZX7ULnlDo+TyPp54F7tH2rmo0lIpkr1bmIvigqYLytPUneUfIN17+Sj7a0SxqfqL9icrWwkiNS5DIvDHtcypa3SbcIt5CbfP81ue/y3jeHReIzek1Xy+xnRKRxMoBDgv9Tq42HEvXUneFJJqdh3c26W+DqVpcsxG17mD6PpVecNjuIRm7d9CIZEBYkf76dW35X7BIKqzBJABujdTAesbYXWZj71mlhQS1bBwL4P2U58LDTVvpEASyWLeh1nVIolDDUe4jBPdqluMzypzQHeJa0a2XboirCLq+HkWhU/vLFSTneSE2YOCQIDAQAB",
   "icons": {
@@ -12,9 +12,7 @@
   },
   "permissions": [
     "storage",
-    "identity",
-    "webNavigation",
-    "tabs"
+    "identity"
   ],
   "content_scripts": [
     {
