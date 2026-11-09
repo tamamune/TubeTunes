@@ -18,7 +18,6 @@
   const f = document.createElement('iframe');
   f.src = `${EMBED}/embed/${encodeURIComponent(videoId)}?${params}`;
   f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
-  f.setAttribute('allowfullscreen', '');
   f.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;border:0;display:block;';
 
   const body = document.createElement('body');

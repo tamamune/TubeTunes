@@ -423,7 +423,6 @@
     iframe = h('iframe', {
       src,
       allow: 'autoplay; encrypted-media; picture-in-picture; fullscreen',
-      allowfullscreen: true,
       title: 'TubeTunes Player',
     });
     adOn = false; adGrace = 0;

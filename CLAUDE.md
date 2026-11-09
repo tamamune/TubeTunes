@@ -6,6 +6,7 @@ YouTube のライブラリ・再生リストを音楽プレーヤーとして再
 
 ## 進め方のルール
 - 返答・コメント・UI の文言は日本語
+- 複数の端末で作業している。**起動時（最初の作業の前）に `git fetch` して、`git status -sb`・`git log --oneline HEAD...origin/main`・`manifest.json` の version を確認し、他端末の更新や未コミットの変更を報告してから始める**。遅れていれば `git pull --ff-only` を提案する（勝手にマージ・上書きしない）
 - GitHub へのコミット・push は頼まれたときだけ
 - 渡す zip の名前はバージョンを付けず `TubeTunes.zip`（中身は `TubeTunes/` フォルダ）
 - 変更したら `manifest.json` の `version` を上げる。main に push すると Actions が `v<version>` の Release を自動作成（同じ版が既にあればスキップ）
@@ -65,6 +66,10 @@ YouTube のライブラリ・再生リストを音楽プレーヤーとして再
 - Drive 接続は利用者側で `redirect_uri_mismatch` が出た段階。リダイレクトURIの登録待ち
 - Android 版 Vivaldi のバックグラウンド再生：Vivaldi の「バックグラウンドでの音声再生を許可」と Android の電池「制限なし」が前提。Vivaldi 側にも再生リストが途中で止まる報告がある（forum.vivaldi.net/post/917575）。拡張だけでは完全には直せない
 - Vivaldi Android の拡張対応は 8.2（2026年9月）から。`webNavigation` / `identity` / `offscreen` がどこまで動くかは未確認
+
+## Android 版 Vivaldi で非パッケージ拡張が一晩で消える件（解決済み）
+- manifest の権限・`action`・`keepalive.js` の有無では再現が変わらなかった（二分探索で確認）。TubeFolio も別の ID で同様に消えた。
+- 原因は拡張機能のフォルダ（読み込み元）側の状態らしく、**読み込むフォルダを変えたら ID は同じまま直った**。manifest は変更不要。再発したらまずフォルダを変えて読み込み直す。
 
 ## 動作確認のしかた
 - デスクトップ：`chrome://extensions` →「パッケージ化されていない拡張機能を読み込む」でこのフォルダ。変更後は拡張機能の再読み込み＋YouTube のタブを再読み込み
