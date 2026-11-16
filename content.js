@@ -962,6 +962,36 @@
   now.title = h('div', { class: 'np-title' });
   now.sub = h('div', { class: 'np-sub' });
   now.src = h('div', { class: 'np-src' });
+  // TubeFolio2(別の拡張機能)と連携: 「🎵 音楽🎵」の曲の 📌 取り置き・🗑 削除(YouTube の再生リストからも外す)。再生元がその再生リストのときだけ出る
+  now.keepB = h('button', { class: 'chip hidden', title: '30日たっても自動では外さない', onclick: () => musicOp(musicSt.keep ? 'unkeep' : 'keep') }, h('span', { text: '📌 取り置き' }));
+  now.delB = h('button', { class: 'chip hidden', title: '再生リストから削除して、しばらく入れない', onclick: () => { if (confirm('この曲を再生リストから削除しますか？(しばらく自動では入りません)')) musicOp('remove'); } }, h('span', { text: '🗑 削除' }));
+  now.musicRow = h('div', { class: 'extras hidden' }, now.keepB, now.delB);
+  const musicSt = { id: '', list: '', ok: false, keep: false };
+  const ttMsg = (op, videoId, listId) => new Promise((res) => {
+    try { chrome.runtime.sendMessage({ type: 'tt-music', op, videoId, listId }, (r) => res(chrome.runtime.lastError ? null : r)); } catch { res(null); }
+  });
+  function musicPaint() {
+    now.keepB.firstChild.textContent = musicSt.keep ? '📌 取り置き中' : '📌 取り置き';
+    now.keepB.classList.toggle('on', musicSt.keep);
+    now.keepB.classList.toggle('hidden', !musicSt.ok); now.delB.classList.toggle('hidden', !musicSt.ok);
+    now.musicRow.classList.toggle('hidden', !musicSt.ok);
+  }
+  async function musicRefresh() {
+    const c = cur(), id = c ? c.id : '', list = S.sourceId || '';
+    if (musicSt.id === id && musicSt.list === list) return;
+    musicSt.id = id; musicSt.list = list; musicSt.ok = false; musicPaint();
+    if (!id || !list) return;
+    const r = await ttMsg('info', id, list);
+    if (musicSt.id !== id || musicSt.list !== list) return; // 曲が変わった
+    musicSt.ok = !!(r && r.ok && r.isMusic); musicSt.keep = !!(r && r.keep); musicPaint();
+  }
+  async function musicOp(op) {
+    const c = cur(); if (!c || !S.sourceId) return;
+    const id = c.id, r = await ttMsg(op, id, S.sourceId);
+    if (!r || r.error || !r.ok) { toast('TubeFolio2 に送れませんでした' + (r && r.error ? `：${r.error}` : '')); return; }
+    if (op === 'remove') { toast('削除しました(しばらく入りません)'); musicSt.id = ''; const i = S.order.findIndex((qi) => S.queue[qi] && S.queue[qi].id === id); if (i >= 0) removeFromQueue(i); return; }
+    musicSt.keep = !!r.keep; musicPaint(); toast(musicSt.keep ? '取り置きにしました' : '取り置きを解除しました');
+  }
   now.seek = h('input', { type: 'range', min: '0', max: '1000', value: '0', class: 'seek' });
   now.tCur = h('span', { text: '0:00' });
   now.tDur = h('span', { text: '0:00' });
@@ -1190,7 +1220,7 @@
     if (document.activeElement !== syncUI.cid && s.clientId && !s.builtin) syncUI.cid.value = s.clientId;
   }
   pages.now.append(h('div', { class: 'now' },
-    now.art, now.title, now.sub, now.src, now.seek,
+    now.art, now.title, now.sub, now.src, now.musicRow, now.seek,
     h('div', { class: 'times' }, now.tCur, now.tDur),
     h('div', { class: 'ctrls' }, now.shuf, now.prev, now.play, now.next, now.rep),
     IS_MOBILE ? null : h('div', { class: 'vol' }, icon('volume', 20), now.vol),
@@ -1274,6 +1304,7 @@
     }
     now.title.textContent = c ? c.title : '再生していません';
     now.sub.textContent = c ? c.author : '「ライブラリ」から再生リストを選んでください';
+    musicRefresh();
     now.src.textContent = c && S.sourceTitle ? `再生元：${S.sourceTitle}（${S.pos + 1} / ${S.order.length}）` : '';
     now.art.classList.toggle('wide', S.showVideo && !!iframe);
   }

@@ -141,6 +141,16 @@ async function download(interactive, mobile) {
 }
 
 // ---------- メッセージ ----------
+// TubeFolio2(別の拡張機能。IDは固定)へ、「🎵 音楽🎵」の曲の 取り置き・削除 を頼む(content script からは直接送れないので、ここで中継)
+const TF_ID = 'ffjjmiikoghongpjbdcchhgclecokekm';
+chrome.runtime.onMessage.addListener((msg, sender, reply) => {
+  if (!msg || msg.type !== 'tt-music') return;
+  chrome.runtime.sendMessage(TF_ID, { type: 'ttMusic', op: msg.op, videoId: msg.videoId, listId: msg.listId }, (r) => {
+    reply(chrome.runtime.lastError ? { ok: false, error: 'TubeFolio2 が見つかりません' } : r);
+  });
+  return true;
+});
+
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   if (!msg || msg.type !== 'tt-drive') return;
   const mobile = !!msg.mobile;
