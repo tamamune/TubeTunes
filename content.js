@@ -862,6 +862,8 @@
   .rt { font-size: 14px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .rs { font-size: 12px; color: #aaa; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .row .ib { width: 36px; height: 36px; color: #aaa; }
+  .row .mb { width: 32px; font-size: 16px; opacity: .55; flex: none; }
+  .row .mb.on { opacity: 1; }
   .pl { display: flex; align-items: center; gap: 12px; padding: 8px 12px; cursor: pointer; }
   .pl:hover { background: rgba(255,255,255,.05); }
   .pl .pi { width: 96px; height: 54px; border-radius: 6px; background: #272727; flex: none; overflow: hidden; display: flex; align-items: center; justify-content: center; color: #888; }
@@ -1308,14 +1310,56 @@
     now.src.textContent = c && S.sourceTitle ? `再生元：${S.sourceTitle}（${S.pos + 1} / ${S.order.length}）` : '';
     now.art.classList.toggle('wide', S.showVideo && !!iframe);
   }
-  function trackRow(t, idx, label, isCur, onClick, onRemove) {
-    return h('div', { class: 'row' + (isCur ? ' cur' : ''), onclick: onClick },
+  // 一覧の曲に 📌取り置き・🗑削除 を付ける(再生リストが「🎵 音楽🎵」のときだけ。判定は再生リストごとに1回、先頭の曲で聞く)
+  const musicLists = new Map(); // listId -> Promise<boolean>
+  const musicKeep = new Map(); // `${listId}|${videoId}` -> boolean
+  function isMusicList(listId, sampleId) {
+    if (!musicLists.has(listId)) musicLists.set(listId, ttMsg('info', sampleId, listId).then((r) => {
+      const ok = !!(r && r.ok && r.isMusic);
+      if (r && r.ok && r.keep !== undefined) musicKeep.set(`${listId}|${sampleId}`, !!r.keep);
+      if (!r) musicLists.delete(listId); // 通信できなかったときは次回やり直す
+      return ok;
+    }));
+    return musicLists.get(listId);
+  }
+  function addMusicButtons(row, t, listId, afterRemove) {
+    if (!listId || !t || !t.id) return;
+    const key = `${listId}|${t.id}`;
+    const keepB = h('button', { class: 'ib mb', style: 'display:none', title: '取り置き', onclick: async (e) => {
+      e.stopPropagation();
+      if (!musicKeep.has(key)) { const r = await ttMsg('info', t.id, listId); musicKeep.set(key, !!(r && r.ok && r.keep)); }
+      const r = await ttMsg(musicKeep.get(key) ? 'unkeep' : 'keep', t.id, listId);
+      if (!r || r.error || !r.ok) { toast('TubeFolio2 に送れませんでした' + (r && r.error ? `：${r.error}` : '')); return; }
+      musicKeep.set(key, !!r.keep); paint();
+      toast(r.keep ? '取り置きにしました' : '取り置きを解除しました');
+      if (musicSt.id === t.id && musicSt.list === listId) { musicSt.keep = !!r.keep; musicPaint(); }
+    } }, '📌');
+    const delB = h('button', { class: 'ib mb', style: 'display:none', title: '再生リストから削除', onclick: async (e) => {
+      e.stopPropagation();
+      if (!confirm(`「${t.title}」を再生リストから削除しますか？(しばらく自動では入りません)`)) return;
+      const r = await ttMsg('remove', t.id, listId);
+      if (!r || r.error || !r.ok) { toast('TubeFolio2 に送れませんでした' + (r && r.error ? `：${r.error}` : '')); return; }
+      toast('削除しました(しばらく入りません)');
+      afterRemove();
+    } }, '🗑');
+    function paint() {
+      const on = musicKeep.get(key) === true;
+      keepB.classList.toggle('on', on); keepB.title = on ? '取り置き中(タップで解除)' : '取り置き';
+    }
+    row.insertBefore(delB, row.lastElementChild && row.lastElementChild.classList.contains('ib') && !row.lastElementChild.classList.contains('mb') ? row.lastElementChild : null);
+    row.insertBefore(keepB, delB);
+    isMusicList(listId, t.id).then((ok) => { if (!ok) return; keepB.style.display = ''; delB.style.display = ''; paint(); });
+  }
+  function trackRow(t, idx, label, isCur, onClick, onRemove, music) {
+    const row = h('div', { class: 'row' + (isCur ? ' cur' : ''), onclick: onClick },
       h('div', { class: 'ix', text: label }),
       h('img', { src: thumb(t.id, 'default'), loading: 'lazy', alt: '' }),
       h('div', { class: 'rx' },
         h('div', { class: 'rt', text: t.title }),
         h('div', { class: 'rs', text: [t.author, t.len ? fmt(t.len) : ''].filter(Boolean).join(' ・ ') })),
       onRemove ? h('button', { class: 'ib', title: 'キューから削除', onclick: (e) => { e.stopPropagation(); onRemove(); } }, icon('close', 18)) : null);
+    if (music) addMusicButtons(row, t, music.listId, music.afterRemove);
+    return row;
   }
   function renderQueue() {
     qv.title.replaceChildren(document.createTextNode(S.sourceTitle || '再生キュー'), h('span', { class: 's', text: `  ${S.order.length}曲` }));
@@ -1328,7 +1372,8 @@
     S.order.forEach((qi, i) => {
       const t = S.queue[qi];
       if (!t) return;
-      frag.append(trackRow(t, i, i === S.pos ? '▶' : String(i + 1), i === S.pos, () => playPos(i), () => removeFromQueue(i)));
+      frag.append(trackRow(t, i, i === S.pos ? '▶' : String(i + 1), i === S.pos, () => playPos(i), () => removeFromQueue(i),
+        { listId: S.sourceId, afterRemove: () => { const j = S.order.findIndex((q) => S.queue[q] && S.queue[q].id === t.id); if (j >= 0) removeFromQueue(j); } }));
     });
     qv.list.replaceChildren(frag);
   }
@@ -1434,7 +1479,11 @@
       st.tracks.forEach((t, i) => box.append(trackRow(t, i, String(i + 1), t.id === curId, () => {
         setQueue(st.tracks, i, opts);
         setTab('now');
-      })));
+      }, null, { listId: pl.id, afterRemove: () => {
+        const k = st.tracks.findIndex((x) => x.id === t.id); if (k >= 0) st.tracks.splice(k, 1);
+        if (S.sourceId === pl.id) { const j = S.order.findIndex((q) => S.queue[q] && S.queue[q].id === t.id); if (j >= 0) removeFromQueue(j); }
+        renderLib();
+      } })));
     }
     frag.append(box);
     return frag;
